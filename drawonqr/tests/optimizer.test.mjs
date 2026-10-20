@@ -3,6 +3,53 @@ import test from "node:test";
 import { analyzeDamage, applyChanges, generateBaseline } from "../js/qr-engine.js";
 import { fittingModes, optimizeDrawing, smallestVersion } from "../js/optimizer.js";
 
+function padding(model) {
+  return model.dataBlocks.flat().slice(model.paddingStartCodeword);
+}
+
+function standardPadding(model) {
+  return padding(model).map((_, index) => index % 2 === 0 ? 0xec : 0x11);
+}
+
+test("standard EC 11 padding is used without a drawing", async () => {
+  for (const [message, version] of [["hi", 1], ["67", 2], ["HELLO", 5]]) {
+    const result = await optimizeDrawing({ message, version });
+    assert.ok(padding(result.model).length > 0);
+    assert.deepEqual(padding(result.model), standardPadding(result.model));
+  }
+});
+
+test("padding stays standard when alternatives cannot reduce damage, even after a previous optimization", async () => {
+  for (let mask = 0; mask < 8; mask += 1) {
+    const settings = { message: "hi", version: 1, level: "H", mask };
+    const base = generateBaseline(settings);
+    const previous = generateBaseline({ ...settings, paddingBytes: [0] });
+    const position = base.path.find(({ row, column }) => {
+      const meta = base.metadata[row][column];
+      return meta.kind === "data" && meta.globalDataCodewordIndex < base.paddingStartCodeword;
+    });
+    const targets = [{ ...position, value: !base.matrix[position.row][position.column] }];
+    const result = await optimizeDrawing({ ...settings, targets, previous });
+    assert.equal(result.totalDamaged, 1);
+    assert.deepEqual(padding(result.model), standardPadding(result.model));
+  }
+});
+
+test("beneficial padding changes preserve all unconstrained standard pad bytes", async () => {
+  const settings = { message: "hi", version: 5, level: "H", mask: 0 };
+  const base = generateBaseline(settings);
+  const target = base.path.find(({ row, column }) => {
+    const meta = base.metadata[row][column];
+    return meta.kind === "data" && meta.globalDataCodewordIndex === base.paddingStartCodeword;
+  });
+  const meta = base.metadata[target.row][target.column];
+  const expected = standardPadding(base);
+  expected[0] ^= 1 << (7 - meta.bitIndex);
+  const result = await optimizeDrawing({ ...settings, targets: [{ ...target, value: !base.matrix[target.row][target.column] }] });
+  assert.equal(result.totalDamaged, 0);
+  assert.deepEqual(padding(result.model), expected);
+});
+
 test("content chooses the smallest fitting version for allowed ECC levels", () => {
   const content = "noel-friedrich.de";
   assert.equal(smallestVersion(content), 1);

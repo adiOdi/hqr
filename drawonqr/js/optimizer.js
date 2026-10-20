@@ -54,6 +54,9 @@ function evaluate(base, targets, paddingBytes = base.paddingBytes) {
     ),
     totalDamaged: counts.reduce((sum, value) => sum + value, 0),
     metadataDamaged: damage.metadataStats.reduce((sum, region) => sum + region.damagedBits, 0),
+    paddingChanges: model.dataBlocks.flat().slice(model.paddingStartCodeword).reduce(
+      (sum, byte, index) => sum + Number(byte !== (index % 2 === 0 ? 0xec : 0x11)), 0,
+    ),
     penalty: calculateMaskPenalty(edited),
   };
 }
@@ -64,6 +67,7 @@ function compare(a, b) {
     a.metadataDamaged - b.metadataDamaged ||
     LEVELS.indexOf(a.model.level) - LEVELS.indexOf(b.model.level) ||
     a.model.paddingStartCodeword - b.model.paddingStartCodeword ||
+    a.paddingChanges - b.paddingChanges ||
     a.penalty - b.penalty;
 }
 
@@ -96,48 +100,47 @@ export async function optimizeDrawing({ message, version, level = "auto", mask =
           row >= 0 && column >= 0 && row < base.matrix.length && column < base.matrix.length &&
           canDrawOn(base, row, column, allowMetadata, allowAlignment),
         );
-        record(evaluate(base, editableTargets));
+        const standard = record(evaluate(base, editableTargets));
         if (!editableTargets.some(({ row, column }) =>
           ["data", "ecc"].includes(base.metadata[row][column].kind),
         )) continue;
 
+        const variants = [standard];
         if (previous && previous.version === version && previous.level === candidateLevel &&
             previous.mask === candidateMask && previous.message === message && previous.type === type) {
-          record(evaluate(previous, editableTargets));
+          variants.push(record(evaluate(previous, editableTargets)));
         }
-        const zeroBase = generateBaseline({ version, level: candidateLevel, mask: candidateMask, message, type, paddingBytes: [0] });
-        const cacheKey = `${version}:${candidateLevel}:${zeroBase.paddingStartCodeword}`;
+        const cacheKey = `${version}:${candidateLevel}:${base.paddingStartCodeword}`;
         if (!paddingBasis) {
-          paddingBasis = paddingCache.get(cacheKey) ?? buildPaddingBasis(zeroBase);
+          paddingBasis = paddingCache.get(cacheKey) ?? buildPaddingBasis(base);
           if (!paddingCache.has(cacheKey)) {
             if (paddingCache.size >= 12) paddingCache.delete(paddingCache.keys().next().value);
             paddingCache.set(cacheKey, paddingBasis);
           }
         }
-        const variants = [];
         const seen = new Set();
         for (let strategy = 0; strategy < 6; strategy += 1) {
-          const padding = solvePadding(zeroBase, editableTargets, paddingBasis, strategy);
+          const padding = solvePadding(base, editableTargets, paddingBasis, strategy);
           const key = padding.join(",");
           if (seen.has(key)) continue;
           seen.add(key);
-          variants.push(record(evaluate(zeroBase, editableTargets, padding)));
+          variants.push(record(evaluate(base, editableTargets, padding)));
         }
 
         // Each Reed-Solomon block is independent: combine the best strategy per block.
-        const combined = variants[0].model.paddingBytes?.slice() ?? [];
+        const combined = base.dataBlocks.flat().slice(base.paddingStartCodeword);
         let offset = 0;
-        zeroBase.blocks.forEach((block, index) => {
+        base.blocks.forEach((block, index) => {
           const winner = variants.reduce((a, b) =>
             b.damage.blockStats[index].totalDamaged < a.damage.blockStats[index].totalDamaged ? b : a,
           );
           for (let word = 0; word < block.dataCount; word += 1) {
-            const paddingIndex = offset + word - zeroBase.paddingStartCodeword;
-            if (paddingIndex >= 0) combined[paddingIndex] = winner.model.paddingBytes[paddingIndex];
+            const paddingIndex = offset + word - base.paddingStartCodeword;
+            if (paddingIndex >= 0) combined[paddingIndex] = winner.model.dataBlocks[index][word];
           }
           offset += block.dataCount;
         });
-        record(evaluate(zeroBase, editableTargets, combined));
+        record(evaluate(base, editableTargets, combined));
       }
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
@@ -343,9 +346,8 @@ function orderEquationGroups(groups, strategy) {
 }
 
 function solvePadding(model, targets, paddingBasis, strategy = 0) {
-  const paddingLength =
-    model.dataBlocks.flat().length - model.paddingStartCodeword;
-  const paddingBytes = Array(Math.max(0, paddingLength)).fill(0);
+  // Solve bit deltas from standard padding so unconstrained bytes stay EC 11.
+  const paddingBytes = model.dataBlocks.flat().slice(model.paddingStartCodeword);
   const groupsByBlock = groupTargetEquations(model, targets, paddingBasis);
 
   groupsByBlock.forEach((groups, blockIndex) => {

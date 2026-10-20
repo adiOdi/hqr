@@ -111,6 +111,7 @@ try {
   assert.equal(await evaluate("document.title"), "DrawOnQR Codes");
   assert.equal(await evaluate('document.querySelector("#ecc").value'), "auto");
   assert.equal(await evaluate('document.querySelector("#mask").value'), "auto");
+  assert.equal(await evaluate('__lastResult.model.dataBlocks.flat().slice(__lastResult.model.paddingStartCodeword).every((byte,index) => byte === (index % 2 === 0 ? 0xec : 0x11))'), true);
   assert.equal(await evaluate('document.querySelector("#version").value'), "1");
   assert.equal(await evaluate('document.querySelector("#version").tagName'), "SELECT");
   assert.deepEqual(await evaluate('[...document.querySelector("#version").options].map(option => Number(option.value))'), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -363,6 +364,7 @@ try {
   assert.equal(await evaluate(`__lastResult.edited[${alignment.row}][${alignment.column}]`), false);
   assert.equal(await evaluate("__lastResult.totalDamaged"), 0);
   assert.equal(await evaluate("__lastResult.metadataDamaged"), 0);
+  assert.equal(await evaluate('__lastResult.model.dataBlocks.flat().slice(__lastResult.model.paddingStartCodeword).every((byte,index) => byte === (index % 2 === 0 ? 0xec : 0x11))'), true);
   assert.deepEqual(await alignmentPixel(), [185, 227, 197, 255]);
   await click("#undo");
   await ready();
