@@ -250,7 +250,7 @@ function applyTextTargets(matrix, targets) {
 function evaluatePadding(baseModel, placement, paddingBytes, budgetRatio) {
   const model = generateBaseline({
     version: baseModel.version,
-    level: "H",
+    level: baseModel.level,
     mask: baseModel.mask,
     message: baseModel.message,
     type: "byte",
@@ -431,9 +431,12 @@ function throwIfAborted(signal) {
 export async function findOptimalTextQr({
   message,
   displayText = message,
+  level = "H",
   budgetRatio = 0.8,
   allowSplit = false,
+  singleLine = false,
   horizontalOnly = false,
+  ignoreAlignmentPatterns = false,
   startVersion = 1,
   maxVersion = 40,
   maskPatterns = [0, 1, 2, 3, 4, 5, 6, 7],
@@ -446,6 +449,9 @@ export async function findOptimalTextQr({
   throwIfAborted(signal);
   if (!message) throw new Error("Enter a URL or message to encode.");
   if (!displayText) throw new Error("Enter text to draw inside the QR code.");
+  if (!["L", "M", "Q", "H"].includes(level)) {
+    throw new Error("Error correction level must be L, M, Q, or H.");
+  }
   if (!(budgetRatio > 0 && budgetRatio <= 1)) {
     throw new Error("ECC budget must be greater than 0% and at most 100%.");
   }
@@ -485,7 +491,7 @@ export async function findOptimalTextQr({
       try {
         baseModel = generateBaseline({
           version,
-          level: "H",
+          level,
           mask,
           message,
           type: "byte",
@@ -503,6 +509,8 @@ export async function findOptimalTextQr({
         96,
         allowSplit,
         horizontalOnly,
+        ignoreAlignmentPatterns ? new Set(["alignment"]) : new Set(),
+        singleLine,
       );
       if (!placements.length) continue;
       if (!paddingBasis) {
@@ -676,6 +684,25 @@ export function runQartTests() {
   if (!separatedPlacement) {
     throw new Error("QArt test failed: separated text rectangles");
   }
+  const singleLinePlacements = findTextPlacements(
+    testModel, "HELLO", 80, true, true, new Set(), true,
+  );
+  if (
+    !singleLinePlacements.length ||
+    singleLinePlacements.some((candidate) =>
+      candidate.lineCount !== 1 || candidate.rectangleCount !== 1 ||
+      candidate.rectangles[0].block.lines[0] !== "HELLO",
+    )
+  ) {
+    throw new Error("QArt test failed: forced single-line placement");
+  }
+  const tooWide = "1234567890";
+  if (
+    !findTextPlacements(testModel, tooWide, 20).length ||
+    findTextPlacements(testModel, tooWide, 20, true, false, new Set(), true).length
+  ) {
+    throw new Error("QArt test failed: single-line text must not wrap to fit");
+  }
   const horizontalPlacements = findTextPlacements(
     testModel,
     "HELLO WORLD",
@@ -692,6 +719,57 @@ export function runQartTests() {
     )
   ) {
     throw new Error("QArt test failed: horizontal-only text rectangles");
+  }
+  const singleCharacterPlacements = findTextPlacements(
+    testModel,
+    "A",
+    20,
+    false,
+    true,
+  );
+  if (
+    !singleCharacterPlacements.length ||
+    singleCharacterPlacements.some((candidate) =>
+      candidate.rectangles.some(
+        (rectangle) => rectangle.block.width < rectangle.block.height,
+      ),
+    )
+  ) {
+    throw new Error("QArt test failed: horizontal single-character placement");
+  }
+  const alignmentModel = generateBaseline({
+    version: 2,
+    level: "H",
+    mask: 0,
+    message: "HELLO",
+    type: "byte",
+    paddingBytes: [0],
+  });
+  const normalAlignmentPlacements = findTextPlacements(
+    alignmentModel,
+    "A",
+    Infinity,
+    false,
+    true,
+  );
+  const ignoredAlignmentPlacements = findTextPlacements(
+    alignmentModel,
+    "A",
+    Infinity,
+    false,
+    true,
+    new Set(["alignment"]),
+  );
+  const touchesAlignment = (placement) =>
+    placement.targets.some(
+      ({ row, column }) =>
+        alignmentModel.metadata[row][column].functionType === "alignment",
+    );
+  if (
+    normalAlignmentPlacements.some(touchesAlignment) ||
+    !ignoredAlignmentPlacements.some(touchesAlignment)
+  ) {
+    throw new Error("QArt test failed: optional alignment overlap");
   }
   const metricModel = {
     matrix: Array.from({ length: 9 }, () => Array(9).fill(false)),
@@ -741,5 +819,5 @@ export function runQartTests() {
   if (!Number.isFinite(penalty) || penalty < 0) {
     throw new Error("QArt test failed: mask penalty");
   }
-  return 11;
+  return 15;
 }

@@ -36,12 +36,15 @@ const elements = {
   legend: document.querySelector("#grid-legend"),
   devModeToggle: document.querySelector("#dev-mode-toggle"),
   textQrMessage: document.querySelector("#text-qr-message"),
+  textQrDisplayText: document.querySelector("#text-qr-display-text"),
   textQrBudget: document.querySelector("#text-qr-budget"),
   textQrBudgetOutput: document.querySelector("#text-qr-budget-output"),
   textQrMaxVersion: document.querySelector("#text-qr-max-version"),
   textQrMaxVersionOutput: document.querySelector("#text-qr-max-version-output"),
   textQrAllowSplit: document.querySelector("#text-qr-allow-split"),
+  textQrSingleLine: document.querySelector("#text-qr-single-line"),
   textQrHorizontalOnly: document.querySelector("#text-qr-horizontal-only"),
+  textQrIgnoreAlignment: document.querySelector("#text-qr-ignore-alignment"),
   generateTextQr: document.querySelector("#generate-text-qr"),
   hqrNavigation: document.querySelector("#hqr-navigation"),
   previousHqr: document.querySelector("#previous-hqr"),
@@ -104,12 +107,18 @@ function readUrlState() {
   const params = new URLSearchParams(window.location.search);
   return {
     content: params.has("c") ? params.get("c") : null,
+    displayText: params.has("t") ? params.get("t") : null,
     devMode: params.has("dev"),
   };
 }
 
 function writeUrlState(content) {
-  const query = `?c=${encodeURIComponent(content)}${
+  const displayText = elements.textQrDisplayText.value.trim();
+  const displayQuery =
+    displayText && displayText !== content
+      ? `&t=${encodeURIComponent(displayText)}`
+      : "";
+  const query = `?c=${encodeURIComponent(content)}${displayQuery}${
     elements.devModeToggle.checked ? "&dev" : ""
   }`;
   window.history.replaceState(
@@ -136,11 +145,16 @@ function canEditQr() {
 }
 
 function getGenerationSettings() {
+  const displayText = elements.textQrDisplayText.value.trim();
   return {
     message: elements.textQrMessage.value,
+    displayText: displayText || elements.textQrMessage.value,
+    level: "H",
     budgetRatio: Number(elements.textQrBudget.value) / 100,
-    allowSplit: elements.textQrAllowSplit.checked,
+    allowSplit: !elements.textQrSingleLine.checked && elements.textQrAllowSplit.checked,
+    singleLine: elements.textQrSingleLine.checked,
     horizontalOnly: elements.textQrHorizontalOnly.checked,
+    ignoreAlignmentPatterns: elements.textQrIgnoreAlignment.checked,
     maxVersion: Number(elements.textQrMaxVersion.value),
   };
 }
@@ -157,6 +171,7 @@ function hasCurrentGenerationHistory() {
 }
 
 function updateGenerationControls() {
+  elements.textQrAllowSplit.disabled = elements.textQrSingleLine.checked;
   if (state.generationController) return;
   const hasHistory = hasCurrentGenerationHistory();
   elements.generateTextQr.hidden = hasHistory;
@@ -835,8 +850,14 @@ elements.textQrMaxVersion.addEventListener("input", () => {
   updateGenerationControls();
 });
 elements.textQrMessage.addEventListener("input", updateGenerationControls);
+elements.textQrDisplayText.addEventListener("input", updateGenerationControls);
 elements.textQrAllowSplit.addEventListener("change", updateGenerationControls);
+elements.textQrSingleLine.addEventListener("change", updateGenerationControls);
 elements.textQrHorizontalOnly.addEventListener(
+  "change",
+  updateGenerationControls,
+);
+elements.textQrIgnoreAlignment.addEventListener(
   "change",
   updateGenerationControls,
 );
@@ -916,6 +937,10 @@ const urlState = readUrlState();
 if (urlState.content !== null) {
   elements.textQrMessage.value = urlState.content;
   elements.textQrMessage.defaultValue = urlState.content;
+}
+if (urlState.displayText !== null) {
+  elements.textQrDisplayText.value = urlState.displayText;
+  elements.textQrDisplayText.defaultValue = urlState.displayText;
 }
 elements.devModeToggle.checked = urlState.devMode;
 updateDevMode();

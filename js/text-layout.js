@@ -118,10 +118,38 @@ export function renderTextBlock(text, charactersPerLine) {
   return renderTextLines(wrapText(text, charactersPerLine));
 }
 
-function touchesFunctionModule(functionMap, top, left, block) {
+function padBlockToMinimumWidth(block, minimumWidth) {
+  if (block.width >= minimumWidth) return block;
+  const extra = minimumWidth - block.width;
+  const leftPadding = Math.floor(extra / 2);
+  const rightPadding = extra - leftPadding;
+  return {
+    ...block,
+    width: minimumWidth,
+    pixels: block.pixels.map((row) => [
+      ...Array(leftPadding).fill(false),
+      ...row,
+      ...Array(rightPadding).fill(false),
+    ]),
+  };
+}
+
+function makeHorizontalBlock(block, text) {
+  if (block.width >= block.height) return block;
+  return text.length === 1 ? padBlockToMinimumWidth(block, block.height) : null;
+}
+
+function touchesFunctionModule(
+  functionMap,
+  top,
+  left,
+  block,
+  ignoredFunctionTypes,
+) {
   for (let row = 0; row < block.height; row += 1) {
     for (let column = 0; column < block.width; column += 1) {
-      if (functionMap[top + row][left + column]) return true;
+      const functionType = functionMap[top + row][left + column];
+      if (functionType && !ignoredFunctionTypes.has(functionType)) return true;
     }
   }
   return false;
@@ -209,14 +237,29 @@ function placementScore(model, block, top, left) {
   return measurePlacement(model, block, top, left).score;
 }
 
-function enumerateBlockPlacements(model, block, maximumCandidates = Infinity) {
+function enumerateBlockPlacements(
+  model,
+  block,
+  maximumCandidates = Infinity,
+  ignoredFunctionTypes = new Set(),
+) {
   const size = model.matrix.length;
   const placements = [];
 
   if (block.width > size || block.height > size) return placements;
   for (let top = 0; top <= size - block.height; top += 1) {
     for (let left = 0; left <= size - block.width; left += 1) {
-      if (touchesFunctionModule(model.functionMap, top, left, block)) continue;
+      if (
+        touchesFunctionModule(
+          model.functionMap,
+          top,
+          left,
+          block,
+          ignoredFunctionTypes,
+        )
+      ) {
+        continue;
+      }
       placements.push({
         block,
         top,
@@ -273,14 +316,31 @@ function finishPlacement(rectangles) {
   };
 }
 
-function findConnectedPlacements(model, text, horizontalOnly) {
+function findConnectedPlacements(
+  model,
+  text,
+  horizontalOnly,
+  ignoredFunctionTypes,
+  singleLine,
+) {
   const size = model.matrix.length;
   const maximumCharactersPerLine = Math.floor((size - BORDER * 2 + 1) / 4);
   const placements = [];
-  for (const lines of makeLineVariants(text, maximumCharactersPerLine)) {
-    const block = renderTextLines(lines);
-    if (horizontalOnly && block.width < block.height) continue;
-    placements.push(...enumerateBlockPlacements(model, block));
+  const lineVariants = singleLine ? [[text]] : makeLineVariants(text, maximumCharactersPerLine);
+  for (const lines of lineVariants) {
+    let block = renderTextLines(lines);
+    if (horizontalOnly) {
+      block = makeHorizontalBlock(block, text);
+      if (!block) continue;
+    }
+    placements.push(
+      ...enumerateBlockPlacements(
+        model,
+        block,
+        Infinity,
+        ignoredFunctionTypes,
+      ),
+    );
   }
   return placements.map((placement) => finishPlacement([placement]));
 }
@@ -324,7 +384,7 @@ function followsReadingOrder(previous, next) {
   );
 }
 
-function findSplitPlacements(model, text, horizontalOnly) {
+function findSplitPlacements(model, text, horizontalOnly, ignoredFunctionTypes) {
   const results = [];
   const maximumRectangles = Math.min(4, text.length);
 
@@ -336,9 +396,12 @@ function findSplitPlacements(model, text, horizontalOnly) {
     for (const lengths of balancedLengthVariants(text.length, rectangleCount)) {
       const chunks = splitByLengths(text, lengths);
       const candidateSets = chunks.map((chunk) => {
-        const block = renderTextBlock(chunk, chunk.length);
-        if (horizontalOnly && block.width < block.height) return [];
-        return enumerateBlockPlacements(model, block, 60);
+        let block = renderTextBlock(chunk, chunk.length);
+        if (horizontalOnly) {
+          block = makeHorizontalBlock(block, chunk);
+          if (!block) return [];
+        }
+        return enumerateBlockPlacements(model, block, 60, ignoredFunctionTypes);
       });
       if (candidateSets.some((candidates) => candidates.length === 0)) continue;
 
@@ -438,18 +501,20 @@ export function findTextPlacements(
   maximumCandidates = 24,
   allowSplit = false,
   horizontalOnly = false,
+  ignoredFunctionTypes = new Set(),
+  singleLine = false,
 ) {
   const connected = sortPlacements(
-    findConnectedPlacements(model, text, horizontalOnly),
+    findConnectedPlacements(model, text, horizontalOnly, ignoredFunctionTypes, singleLine),
   );
   const prioritizedConnected = prioritizeDiversePlacements(
     connected,
     model.matrix.length,
   );
-  if (!allowSplit) return prioritizedConnected.slice(0, maximumCandidates);
+  if (!allowSplit || singleLine) return prioritizedConnected.slice(0, maximumCandidates);
 
   const split = sortPlacements(
-    findSplitPlacements(model, text, horizontalOnly),
+    findSplitPlacements(model, text, horizontalOnly, ignoredFunctionTypes),
   );
   const prioritizedSplit = prioritizeDiversePlacements(
     split,

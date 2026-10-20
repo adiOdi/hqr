@@ -116,7 +116,11 @@
                             everyone! So let's change that by integrating text
                             directly into QR codes, while still making them
                             readable and without removing their magical
-                            Error-Correction abilities.
+                            Error-Correction abilities. See the <a href="https://www.youtube.com/watch?v=RYqX8CNgzwM">YouTube video</a> I made about this.
+                        </p>
+                        <p>
+                            If you want to draw on QR codes yourself instead of this
+                            pre-made text, I made <a href="/drawonqr/">a new website for optimal drawing</a>!
                         </p>
                     </header>
 
@@ -153,6 +157,14 @@
                                 >)</span
                             >
                             <textarea id="text-qr-message">67</textarea>
+                        </label>
+                        <label class="field">
+                            <span>Display text (optional)</span>
+                            <input
+                                type="text"
+                                id="text-qr-display-text"
+                                placeholder="Defaults to content"
+                            />
                         </label>
                         <label class="field dev-mode">
                             <span>Maximum ECC budget used</span>
@@ -201,6 +213,10 @@
                             >
                         </label>
                         <label class="check-row dev-mode">
+                            <input type="checkbox" id="text-qr-single-line" />
+                            <span>Force a single line (no line breaks)</span>
+                        </label>
+                        <label class="check-row dev-mode">
                             <input type="checkbox" id="text-qr-allow-split" />
                             <span
                                 >Allow text to be split into separate
@@ -218,14 +234,20 @@
                                 are tall (it gets ugly otherwise)</span
                             >
                         </label>
+                        <label class="check-row dev-mode">
+                            <input
+                                type="checkbox"
+                                id="text-qr-ignore-alignment"
+                            />
+                            <span
+                                >Allow text over small 5×5 alignment
+                                patterns</span
+                            >
+                        </label>
                         <button type="button" id="generate-text-qr">
                             Generate HQR Code
                         </button>
-                        <div
-                            class="hqr-navigation"
-                            id="hqr-navigation"
-                            hidden
-                        >
+                        <div class="hqr-navigation" id="hqr-navigation" hidden>
                             <button type="button" id="previous-hqr" disabled>
                                 &lt; Previous HQR
                             </button>

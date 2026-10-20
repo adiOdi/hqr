@@ -1,0 +1,348 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    min-width: 320px;
+    min-height: 100%;
+    margin: 0;
+    --border: #ccc;
+    --muted: #555;
+    --workspace: #f5f5f5;
+    --safe: #267244;
+    --warning: #936300;
+    --risky: #a14312;
+    --invalid: #b42318;
+    font-family: Arial, Helvetica, sans-serif;
+
+    --default-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+body {
+    overflow: hidden;
+    background: var(--workspace);
+    color: #000;
+}
+
+button,
+select,
+textarea,
+input {
+    font: inherit;
+}
+
+button,
+select,
+textarea,
+input[type="text"] {
+    border: 1px solid var(--border);
+    background: #fff;
+    color: #000;
+}
+
+button {
+    min-height: 34px;
+    border-radius: 5px;
+    padding: 0 11px;
+    cursor: pointer;
+}
+
+button:hover {
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+}
+
+button:active {
+    transform: scale(0.97);
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+button:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+input:focus-visible,
+.qr-grid:focus-visible {
+    outline: 2px solid #777;
+    outline-offset: 2px;
+}
+
+.editor-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 430px;
+    width: 100vw;
+    height: 100vh;
+}
+
+.workspace {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 14px;
+    overflow: hidden;
+    background: var(--workspace);
+    user-select: none;
+}
+
+.workspace-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 7px;
+}
+
+.tool-group {
+    display: flex;
+}
+
+.tool-group button {
+    border-radius: 0;
+}
+
+.tool-group button:first-child {
+    border-radius: 5px 0 0 5px;
+}
+
+.tool-group button:last-child {
+    border-radius: 0 5px 5px 0;
+}
+
+.tool-group button + button {
+    margin-left: -1px;
+}
+
+button[aria-pressed="true"] {
+    position: relative;
+    z-index: 1;
+    border-color: #000;
+    background: #e9e9e9;
+}
+
+.colors button {
+    display: grid;
+    width: 38px;
+    padding: 0;
+    place-items: center;
+}
+
+.swatch {
+    width: 17px;
+    height: 17px;
+    border: 1px solid #777;
+}
+
+.swatch.black {
+    background: #000;
+}
+
+.swatch.white {
+    background: #fff;
+}
+
+.grid-frame {
+    display: grid;
+    width: min(76vh, calc(100vw - 470px), 780px);
+    max-width: 100%;
+    aspect-ratio: 1;
+    place-items: center;
+    overflow: hidden;
+    background: #ddd;
+
+    box-shadow: var(--default-shadow);
+}
+
+.qr-grid {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    background: #fff;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.qr-grid canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    pointer-events: none;
+}
+
+.panel {
+    height: 100vh;
+    overflow-y: auto;
+    border-left: 1px solid var(--border);
+    background: #fff;
+}
+
+.panel-header,
+.panel-section,
+.notice {
+    padding-right: 18px;
+    padding-left: 18px;
+}
+
+.panel-header {
+    padding-top: 24px;
+    padding-bottom: 10px;
+}
+
+.panel-header > p {
+    margin: 0;
+}
+
+h1 {
+    margin: 0 0 9px;
+    font-size: 24px;
+}
+
+.panel-section {
+    padding-top: 22px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+}
+
+h2 {
+    margin: 0 0 13px;
+    font-size: 15px;
+}
+
+.field {
+    display: grid;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.field > span {
+    font-size: 12px;
+}
+
+.field select {
+    width: 100%;
+    height: 34px;
+}
+
+.field textarea {
+    width: 100%;
+    min-height: 70px;
+    padding: 8px;
+    resize: vertical;
+}
+
+.field input[type="text"] {
+    width: 100%;
+    height: 34px;
+    padding: 0 8px;
+}
+
+.highlight-controls {
+    display: grid;
+    gap: 9px;
+    margin-top: 20px;
+}
+
+.check-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.check-row input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+}
+
+.field textarea { min-width: 0; }
+#qr-grid.is-optimizing { cursor: progress; }
+.frame.is-invalid { background: #fff0ef; }
+
+#status {
+    color: var(--safe);
+    font-size: 13px;
+    min-height: 1em;
+}
+
+#status.is-working { color: var(--muted); }
+#status.is-error { color: var(--invalid); }
+#blocks, #metadata-blocks { display: grid; gap: 10px; }
+#metadata-blocks[hidden] { display: none; }
+.metadata > p { margin: 10px 0 0; font-size: 13px; line-height: 1.4; }
+#metadata-blocks:not([hidden]) { margin-top: 13px; }
+.block { font-size: 12px; }
+.block-label { display: flex; justify-content: space-between; margin-bottom: 4px; }
+meter { display: block; width: 100%; height: 12px; }
+.block.is-invalid { color: var(--invalid); }
+.actions button { width: 100%; }
+
+.actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+}
+
+@media (min-width: 1200px) {
+    .editor-layout {
+        --padding-left-to-panel: calc(
+            (100vw - 430px - min(76vh, calc(100vw - 470px), 780px)) / 3
+        );
+
+        grid-template-columns: minmax(0, 1fr) calc(
+                430px + var(--padding-left-to-panel)
+            );
+        overflow: visible;
+    }
+
+    .panel-container {
+        height: 100vh;
+        overflow-y: auto;
+    }
+
+    .panel {
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        margin-top: 10vh;
+        margin-bottom: 10vh;
+        height: fit-content;
+        margin-right: var(--padding-left-to-panel);
+    }
+}
+
+@media (max-width: 900px) {
+    body {
+        overflow: auto;
+    }
+
+    .editor-layout {
+        display: block;
+        width: 100%;
+        height: auto;
+    }
+
+    .workspace {
+        overflow: visible;
+    }
+
+    .grid-frame {
+        width: min(calc(100vw - 28px), 72svh);
+    }
+
+    .panel {
+        height: auto;
+        overflow: visible;
+        border-top: 1px solid var(--border);
+        border-left: 0;
+    }
+}

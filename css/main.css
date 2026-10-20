@@ -38,7 +38,8 @@ input {
 
 button,
 select,
-textarea {
+textarea,
+input[type="text"] {
     border: 1px solid var(--border);
     background: #fff;
     color: #000;
@@ -320,6 +321,12 @@ h2 {
     min-height: 70px;
     padding: 8px;
     resize: vertical;
+}
+
+.field input[type="text"] {
+    width: 100%;
+    height: 34px;
+    padding: 0 8px;
 }
 
 .field small {

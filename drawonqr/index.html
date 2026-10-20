@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DrawOnQR Codes</title>
+    <link rel="stylesheet" href="css/main.css" />
+  </head>
+  <body>
+    <main class="editor-layout">
+      <section class="workspace" aria-label="QR drawing workspace">
+        <div class="workspace-toolbar" aria-label="Drawing tools">
+          <div class="tool-group" role="group" aria-label="Tool">
+            <button type="button" data-tool="pencil" aria-pressed="true">Pencil</button>
+            <button type="button" data-tool="rectangle" aria-pressed="false">Rectangle</button>
+            <button type="button" data-tool="restore" aria-pressed="false">Restore</button>
+          </div>
+          <div class="tool-group colors" role="group" aria-label="Draw color">
+            <button type="button" data-color="black" aria-label="Black" aria-pressed="true"><span class="swatch black"></span></button>
+            <button type="button" data-color="white" aria-label="White" aria-pressed="false"><span class="swatch white"></span></button>
+          </div>
+          <button type="button" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>&#8630;</button>
+          <button type="button" id="redo" title="Redo (Ctrl+Y)" aria-label="Redo" disabled>&#8631;</button>
+        </div>
+        <div class="grid-frame frame">
+          <div class="qr-grid" id="qr-grid" tabindex="0" role="application" aria-label="Draw on QR code">
+            <canvas id="qr-canvas" aria-hidden="true"></canvas>
+          </div>
+        </div>
+      </section>
+      <div class="panel-container">
+        <aside class="panel">
+          <header class="panel-header">
+            <h1>DrawOnQR Codes</h1>
+            <p>
+              This website let's you draw on a generated QR Code. If you draw
+              some pixels white/black (shown in green), it will optimize padding
+              data, masking pattern, ECC level, encoding modes, and ECC
+              distribution to find the QR code with least block damage still
+              containing the defined content.
+            </p>
+          </header>
+          <section class="panel-section">
+            <label class="field">
+              <span>Content</span>
+              <textarea id="content" rows="3" spellcheck="false">67</textarea>
+            </label>
+            <label class="field">
+              <span>Version</span>
+              <select id="version">
+                <option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option>
+                <option value="5">5</option><option value="6">6</option>
+                <option value="7">7</option><option value="8">8</option>
+                <option value="9">9</option><option value="10">10</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>ECC level</span>
+              <select id="ecc">
+                <option value="auto">Auto</option>
+                <option value="L">L</option><option value="M">M</option>
+                <option value="Q">Q</option><option value="H">H</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Mask pattern</span>
+              <select id="mask">
+                <option value="auto">Auto</option>
+                <option value="0">0</option><option value="1">1</option>
+                <option value="2">2</option><option value="3">3</option>
+                <option value="4">4</option><option value="5">5</option>
+                <option value="6">6</option><option value="7">7</option>
+              </select>
+            </label>
+            <div class="highlight-controls">
+              <label class="check-row">
+                <input type="checkbox" id="highlight-drawn" checked />
+                <span>Highlight drawn in green</span>
+              </label>
+              <label class="check-row">
+                <input type="checkbox" id="highlight-necessary" checked />
+                <span>Highlight necessary modules</span>
+              </label>
+            </div>
+          </section>
+          <section class="panel-section metadata">
+            <label class="check-row">
+              <input type="checkbox" id="allow-metadata" />
+              <span>Allow destroying metadata</span>
+            </label>
+            <p>
+              QR Metadata (orange) has seperate error correction. If necessary,
+              this can also be abused to change these metadata modules.
+            </p>
+            <div id="metadata-blocks" hidden></div>
+          </section>
+          <section class="panel-section damage" aria-labelledby="damage-heading">
+            <h2 id="damage-heading">Block damage</h2>
+            <p id="status" role="status" aria-live="polite"></p>
+            <div id="blocks"></div>
+          </section>
+          <section class="panel-section actions">
+            <button type="button" id="svg" disabled>Download SVG</button>
+            <button type="button" id="png" disabled>Download PNG</button>
+            <button type="button" id="share" disabled>Share</button>
+          </section>
+        </aside>
+      </div>
+    </main>
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
