@@ -5,8 +5,8 @@ import { download, pngBlob, svgBlob } from "./export.js";
 
 const elements = Object.fromEntries([
   "content", "version", "ecc", "mask", "qr-grid", "qr-canvas", "undo", "redo",
-  "status", "blocks", "svg", "png", "share", "highlight-drawn", "highlight-necessary",
-  "allow-metadata", "metadata-blocks",
+  "status", "blocks", "svg", "png", "share", "highlight-areas", "grid-legend",
+  "allow-metadata", "metadata-blocks", "allow-alignment",
 ].map((id) => [id, document.getElementById(id)]));
 const grid = new DrawingCanvas(elements["qr-grid"], elements["qr-canvas"]);
 const MAX_VERSION = 10;
@@ -26,6 +26,7 @@ function settings() {
     level: elements.ecc.value,
     mask: elements.mask.value,
     allowMetadata: elements["allow-metadata"].checked,
+    allowAlignment: elements["allow-alignment"].checked,
   };
 }
 
@@ -34,14 +35,18 @@ function view() {
     model: state.model,
     targets: state.preview ?? state.targets,
     invalid: state.invalid,
-    highlightDrawn: elements["highlight-drawn"].checked,
-    highlightNecessary: elements["highlight-necessary"].checked,
+    highlightAreas: elements["highlight-areas"].checked,
     allowMetadata: elements["allow-metadata"].checked,
   };
 }
 
 function matrix() {
   return applyChanges(state.model.matrix, [...state.targets.values()]);
+}
+
+function canPaint(row, column) {
+  return canDrawOn(state.model, row, column,
+    elements["allow-metadata"].checked, elements["allow-alignment"].checked);
 }
 
 function message(text, type = "") {
@@ -206,7 +211,7 @@ function rebuild({ fit = false, clear = false } = {}) {
     });
     const size = state.model.matrix.length;
     state.targets = new Map((clear ? [] : oldTargets).filter(({ row, column }) =>
-      row < size && column < size && canDrawOn(state.model, row, column, config.allowMetadata),
+      row < size && column < size && canPaint(row, column),
     ).map((target) => [target.row * size + target.column, target]));
     state.history = [];
     state.future = [];
@@ -222,7 +227,7 @@ function rebuild({ fit = false, clear = false } = {}) {
 
 function paint(targets, row, column) {
   const size = state.model.matrix.length;
-  if (row < 0 || column < 0 || row >= size || column >= size || !canDrawOn(state.model, row, column, elements["allow-metadata"].checked)) return;
+  if (row < 0 || column < 0 || row >= size || column >= size || !canPaint(row, column)) return;
   const key = row * size + column;
   if (state.tool === "restore") targets.delete(key);
   else targets.set(key, { row, column, value: state.value });
@@ -271,7 +276,7 @@ function finishStroke(event) {
 elements["qr-grid"].addEventListener("pointerdown", (event) => {
   if (!state.ready || state.stroke || event.button !== 0) return;
   const module = grid.moduleFromPointer(event);
-  if (!module || !canDrawOn(state.model, module.row, module.column, elements["allow-metadata"].checked)) return;
+  if (!module || !canPaint(module.row, module.column)) return;
   event.preventDefault();
   state.revision += 1;
   state.queued = true;
@@ -315,28 +320,27 @@ elements.content.addEventListener("input", () => rebuild({ fit: true, clear: tru
 elements.version.addEventListener("change", () => rebuild());
 elements.ecc.addEventListener("change", () => rebuild());
 elements.mask.addEventListener("change", () => rebuild());
-elements["allow-metadata"].addEventListener("change", () => {
-  finishStroke();
-  if (!state.model) return;
-  if (!elements["allow-metadata"].checked) {
-    const protect = (targets) => new Map([...targets].filter(([, { row, column }]) => canDrawOn(state.model, row, column)));
+for (const id of ["allow-metadata", "allow-alignment"]) {
+  elements[id].addEventListener("change", () => {
+    finishStroke();
+    if (!state.model) return;
+    const protect = (targets) => new Map([...targets].filter(([, { row, column }]) => canPaint(row, column)));
     state.targets = protect(state.targets);
     state.history = state.history.map(protect);
     state.future = state.future.map(protect);
-  }
-  grid.stop();
-  state.animating = false;
-  grid.render(view());
-  showDamage({ damage: analyzeDamage(state.model, matrix()) });
-  if (state.ready) schedule();
-});
-for (const id of ["highlight-drawn", "highlight-necessary"]) {
-  elements[id].addEventListener("change", () => {
-    if (!state.model) return;
-    if (state.animating) grid.stop();
+    grid.stop();
+    state.animating = false;
     grid.render(view());
+    showDamage({ damage: analyzeDamage(state.model, matrix()) });
+    if (state.ready) schedule();
   });
 }
+elements["highlight-areas"].addEventListener("change", () => {
+  elements["grid-legend"].hidden = !elements["highlight-areas"].checked;
+  if (!state.model) return;
+  if (state.animating) grid.stop();
+  grid.render(view());
+});
 elements.svg.addEventListener("click", () => download(svgBlob(matrix()), filename("svg")));
 elements.png.addEventListener("click", async () => download(await pngBlob(matrix()), filename("png")));
 elements.share.addEventListener("click", async () => {

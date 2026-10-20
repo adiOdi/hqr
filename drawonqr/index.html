@@ -27,6 +27,12 @@
             <canvas id="qr-canvas" aria-hidden="true"></canvas>
           </div>
         </div>
+        <div class="grid-legend" id="grid-legend" aria-label="Area colors">
+          <span class="legend-item"><span class="legend-swatch drawn"></span>Drawn</span>
+          <span class="legend-item"><span class="legend-swatch protected"></span>Protected</span>
+          <span class="legend-item"><span class="legend-swatch metadata"></span>Metadata</span>
+          <span class="legend-item"><span class="legend-swatch alignment"></span>Alignment</span>
+        </div>
       </section>
       <div class="panel-container">
         <aside class="panel">
@@ -75,12 +81,8 @@
             </label>
             <div class="highlight-controls">
               <label class="check-row">
-                <input type="checkbox" id="highlight-drawn" checked />
-                <span>Highlight drawn in green</span>
-              </label>
-              <label class="check-row">
-                <input type="checkbox" id="highlight-necessary" checked />
-                <span>Highlight necessary modules</span>
+                <input type="checkbox" id="highlight-areas" checked />
+                <span>Highlight Areas</span>
               </label>
             </div>
           </section>
@@ -94,6 +96,16 @@
               this can also be abused to change these metadata modules.
             </p>
             <div id="metadata-blocks" hidden></div>
+            <div class="alignment-option">
+              <label class="check-row">
+                <input type="checkbox" id="allow-alignment" />
+                <span>Allow drawing on alignment patterns</span>
+              </label>
+              <p>
+                Alignment patterns (blue) are often ignored by scanners and
+                could thus be modified too. It might not scan with all scanners.
+              </p>
+            </div>
           </section>
           <section class="panel-section damage" aria-labelledby="damage-heading">
             <h2 id="damage-heading">Block damage</h2>

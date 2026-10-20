@@ -114,24 +114,28 @@ try {
   assert.equal(await evaluate('document.querySelector("#version").value'), "1");
   assert.equal(await evaluate('document.querySelector("#version").tagName'), "SELECT");
   assert.deepEqual(await evaluate('[...document.querySelector("#version").options].map(option => Number(option.value))'), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-  assert.equal(await evaluate('document.querySelector("#highlight-drawn").checked'), true);
-  assert.equal(await evaluate('document.querySelector("#highlight-necessary").checked'), true);
+  assert.equal(await evaluate('document.querySelector("#highlight-areas").checked'), true);
+  assert.equal(await evaluate('document.querySelectorAll(".legend-item").length'), 4);
+  assert.equal(await evaluate('document.querySelector("#allow-alignment").checked'), false);
   const protectedPixel = () => evaluate("[...document.querySelector('canvas').getContext('2d').getImageData(3,3,1,1).data]");
   const protectedJobs = await evaluate("__jobs.length");
   assert.deepEqual(await protectedPixel(), [180, 35, 24, 255]);
-  await click("#highlight-necessary");
+  await click("#highlight-areas");
   assert.deepEqual(await protectedPixel(), [0, 0, 0, 255]);
-  await click("#highlight-necessary");
+  assert.equal(await evaluate('document.querySelector("#grid-legend").hidden'), true);
+  await click("#highlight-areas");
   assert.deepEqual(await protectedPixel(), [180, 35, 24, 255]);
+  assert.equal(await evaluate('document.querySelector("#grid-legend").hidden'), false);
   assert.equal(await evaluate("__jobs.length"), protectedJobs);
   assert.equal(await evaluate('document.querySelector("#allow-metadata").checked'), false);
   assert.equal(await evaluate('document.querySelector("#metadata-blocks").hidden'), true);
   const metadataPixel = () => evaluate("[...document.querySelector('canvas').getContext('2d').getImageData(8,0,1,1).data]");
   const metadataColor = await evaluate("__lastResult.model.matrix[0][8] ? [180,90,10,255] : [255,226,184,255]");
   assert.deepEqual(await metadataPixel(), metadataColor);
-  await click("#highlight-necessary");
+  await click("#highlight-areas");
+  assert.deepEqual(await metadataPixel(), await evaluate("__lastResult.model.matrix[0][8] ? [0,0,0,255] : [255,255,255,255]"));
+  await click("#highlight-areas");
   assert.deepEqual(await metadataPixel(), metadataColor);
-  await click("#highlight-necessary");
   console.log("pass: defaults and worker startup");
 
   for (const [width, height] of [[1600, 900], [1200, 900], [1199, 900], [901, 900], [900, 900], [375, 812]]) {
@@ -190,9 +194,9 @@ try {
   const paintedColor = await evaluate(`(() => { const c = document.querySelector('canvas'); return [...c.getContext('2d').getImageData(${target.column},${target.row},1,1).data]; })()`);
   assert.deepEqual(paintedColor, [18, 109, 60, 255]);
   const highlightJobs = await evaluate("__jobs.length");
-  await click("#highlight-drawn");
+  await click("#highlight-areas");
   assert.deepEqual(await evaluate(`(() => { const c = document.querySelector('canvas'); return [...c.getContext('2d').getImageData(${target.column},${target.row},1,1).data]; })()`), [0, 0, 0, 255]);
-  await click("#highlight-drawn");
+  await click("#highlight-areas");
   assert.deepEqual(await evaluate(`(() => { const c = document.querySelector('canvas'); return [...c.getContext('2d').getImageData(${target.column},${target.row},1,1).data]; })()`), paintedColor);
   assert.equal(await evaluate("__jobs.length"), highlightJobs);
   console.log("pass: finder protection, drawing, green highlight");
@@ -251,11 +255,13 @@ try {
   assert.equal(await evaluate('document.querySelector(".frame").classList.contains("is-invalid")'), true);
   const invalidPixel = () => evaluate("[...document.querySelector('canvas').getContext('2d').getImageData(10,10,1,1).data]");
   assert.deepEqual(await invalidPixel(), [185, 227, 197, 255]);
-  await click("#highlight-drawn");
-  assert.deepEqual(await invalidPixel(), [255, 240, 239, 255]);
+  await click("#highlight-areas");
+  assert.deepEqual(await invalidPixel(), [255, 255, 255, 255]);
+  assert.equal(await evaluate('document.querySelector(".frame").classList.contains("is-invalid")'), false);
   assert.equal(await evaluate('document.querySelector("#status").classList.contains("is-error")'), true);
-  await click("#highlight-drawn");
+  await click("#highlight-areas");
   assert.deepEqual(await invalidPixel(), [185, 227, 197, 255]);
+  assert.equal(await evaluate('document.querySelector(".frame").classList.contains("is-invalid")'), true);
   await click("#undo");
   await ready();
   assert.equal(await evaluate('document.querySelector(".frame").classList.contains("is-invalid")'), false);
@@ -332,6 +338,67 @@ try {
   assert.equal(await evaluate("__jobs.at(-1).settings.targets.length"), 0);
   assert.deepEqual(await metadataPixel(), await evaluate("__lastResult.model.matrix[0][8] ? [180,90,10,255] : [255,226,184,255]"));
   console.log("pass: orange metadata, drawing permission, per-copy ECC meters, undo, and relocking");
+
+  await set("#version", "2");
+  await ready();
+  const alignment = await evaluate(`(() => {
+    const m = __lastResult.model;
+    for (let row=0; row<m.matrix.length; row++) for (let column=0; column<m.matrix.length; column++)
+      if (m.functionMap[row][column] === 'alignment' && m.matrix[row][column]) return {row,column};
+  })()`);
+  const alignmentPixel = () => evaluate(`[...document.querySelector('canvas').getContext('2d').getImageData(${alignment.column},${alignment.row},1,1).data]`);
+  assert.deepEqual(await alignmentPixel(), [36, 92, 166, 255]);
+  const alignmentJobs = await evaluate("__jobs.length");
+  await stroke(alignment);
+  assert.equal(await evaluate("__jobs.length"), alignmentJobs);
+  await click("#highlight-areas");
+  assert.deepEqual(await alignmentPixel(), [0, 0, 0, 255]);
+  await click("#highlight-areas");
+  assert.deepEqual(await alignmentPixel(), [36, 92, 166, 255]);
+  await click("#allow-alignment");
+  await ready();
+  await click('[data-color="white"]');
+  await stroke(alignment);
+  await ready();
+  assert.equal(await evaluate(`__lastResult.edited[${alignment.row}][${alignment.column}]`), false);
+  assert.equal(await evaluate("__lastResult.totalDamaged"), 0);
+  assert.equal(await evaluate("__lastResult.metadataDamaged"), 0);
+  assert.deepEqual(await alignmentPixel(), [185, 227, 197, 255]);
+  await click("#undo");
+  await ready();
+  assert.deepEqual(await alignmentPixel(), [36, 92, 166, 255]);
+  await click("#redo");
+  await ready();
+  assert.deepEqual(await alignmentPixel(), [185, 227, 197, 255]);
+
+  await click("#allow-metadata");
+  await ready();
+  assert.equal(await evaluate("__jobs.at(-1).settings.targets.length"), 1);
+  const metadataDark = await evaluate("__lastResult.model.matrix[0][8]");
+  await click(metadataDark ? '[data-color="white"]' : '[data-color="black"]');
+  await stroke({ row: 0, column: 8 });
+  await ready();
+  assert.equal(await evaluate("__jobs.at(-1).settings.targets.length"), 2);
+  await click("#allow-alignment");
+  await ready();
+  assert.deepEqual(await evaluate("__jobs.at(-1).settings.targets.map(t => [t.row,t.column])"), [[0, 8]]);
+  assert.deepEqual(await alignmentPixel(), [36, 92, 166, 255]);
+  await click("#undo");
+  await ready();
+  await click("#redo");
+  await ready();
+  assert.deepEqual(await evaluate("__jobs.at(-1).settings.targets.map(t => [t.row,t.column])"), [[0, 8]]);
+  await click("#allow-alignment");
+  await ready();
+  await click('[data-color="white"]');
+  await stroke(alignment);
+  await ready();
+  await click("#allow-metadata");
+  await ready();
+  assert.deepEqual(await evaluate("__jobs.at(-1).settings.targets.map(t => [t.row,t.column])"), [[alignment.row, alignment.column]]);
+  assert.deepEqual(await alignmentPixel(), [185, 227, 197, 255]);
+  assert.deepEqual(await metadataPixel(), await evaluate("__lastResult.model.matrix[0][8] ? [180,90,10,255] : [255,226,184,255]"));
+  console.log("pass: blue alignment areas, opt-in drawing, undo/redo, and independent permission changes");
 
   await command("Page.captureScreenshot", { format: "png" }).then(async ({data}) => {
     if (process.env.DRAWONQR_SCREENSHOT) {

@@ -16,22 +16,25 @@ export class DrawingCanvas {
     return { row, column };
   }
 
-  makeImage({ model, targets, invalid = false, highlightDrawn = true, highlightNecessary = true, allowMetadata = false }) {
+  makeImage({ model, targets, invalid = false, highlightAreas = true, allowMetadata = false }) {
     const size = model.matrix.length;
     if (this.canvas.width !== size) {
       this.canvas.width = this.canvas.height = size;
       this.root.parentElement.style.setProperty("--qr-size", size);
     }
-    this.root.parentElement.classList.toggle("is-invalid", invalid);
+    this.root.parentElement.classList.toggle("is-invalid", invalid && highlightAreas);
     const image = this.context.createImageData(size, size);
     model.matrix.forEach((line, row) => line.forEach((baseline, column) => {
       const target = targets.get(row * size + column);
       const dark = target ? target.value : baseline;
       const metadata = isMetadataModule(model.functionMap[row][column]);
-      const color = target && highlightDrawn
+      const alignment = model.functionMap[row][column] === "alignment";
+      const color = !highlightAreas ? (dark ? [0, 0, 0] : [255, 255, 255])
+        : target
         ? (dark ? [18, 109, 60] : [185, 227, 197])
         : metadata && !allowMetadata ? (dark ? [180, 90, 10] : [255, 226, 184])
-        : invalid || (highlightNecessary && model.functionMap[row][column] && !metadata)
+        : alignment ? (dark ? [36, 92, 166] : [203, 225, 251])
+        : invalid || (model.functionMap[row][column] && !metadata)
           ? (dark ? [180, 35, 24] : [255, 240, 239])
           : dark ? [0, 0, 0] : [255, 255, 255];
       image.data.set([...color, 255], (row * size + column) * 4);

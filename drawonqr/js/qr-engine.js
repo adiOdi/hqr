@@ -19,9 +19,10 @@ export function isMetadataModule(functionType) {
   return functionType === "format" || functionType === "version";
 }
 
-export function canDrawOn(model, row, column, allowMetadata = false) {
+export function canDrawOn(model, row, column, allowMetadata = false, allowAlignment = false) {
   const functionType = model.functionMap[row]?.[column];
-  return functionType === "" || (allowMetadata && isMetadataModule(functionType));
+  return functionType === "" || (allowMetadata && isMetadataModule(functionType)) ||
+    (allowAlignment && functionType === "alignment");
 }
 
 export function getMetadataRegions(version) {

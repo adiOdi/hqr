@@ -67,7 +67,7 @@ function compare(a, b) {
     a.penalty - b.penalty;
 }
 
-export async function optimizeDrawing({ message, version, level = "auto", mask = "auto", targets = [], previous, allowMetadata = false }, onBest = () => {}) {
+export async function optimizeDrawing({ message, version, level = "auto", mask = "auto", targets = [], previous, allowMetadata = false, allowAlignment = false }, onBest = () => {}) {
   if (!Number.isInteger(version) || version < 1 || version > 40) {
     throw new Error("Version must be between 1 and 40.");
   }
@@ -94,7 +94,7 @@ export async function optimizeDrawing({ message, version, level = "auto", mask =
         const editableTargets = targets.filter(({ row, column }) =>
           Number.isInteger(row) && Number.isInteger(column) &&
           row >= 0 && column >= 0 && row < base.matrix.length && column < base.matrix.length &&
-          canDrawOn(base, row, column, allowMetadata),
+          canDrawOn(base, row, column, allowMetadata, allowAlignment),
         );
         record(evaluate(base, editableTargets));
         if (!editableTargets.some(({ row, column }) =>
